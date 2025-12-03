@@ -1,0 +1,38 @@
+{
+    "version": "1.0.0",
+    "database": {
+        "path": "~/.hindsight/knowledge.db",
+        "connection_timeout": 30,
+        "busy_timeout": 5000,
+        "max_retries": 3,
+        "retry_delay": 0.5
+    },
+    "backup": {
+        "enabled": true,
+        "directory": "~/.hindsight/backups",
+        "max_backups": 30,
+        "schedule": "daily at 3:00 AM"
+    },
+    "search": {
+        "default_limit": 10,
+        "max_limit": 100,
+        "min_relevance_score": 0.1
+    },
+    "defaults": {
+        "swift_version": "6.0",
+        "ios_version": "18.0"
+    },
+    "logging": {
+        "level": "INFO",
+        "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        "file": "~/.hindsight/logs/hindsight.log",
+        "max_size_mb": 10,
+        "backup_count": 5
+    },
+    "environment_variables": {
+        "HINDSIGHT_DB_PATH": "Override database path",
+        "HINDSIGHT_LOG_LEVEL": "Override log level (DEBUG, INFO, WARNING, ERROR)",
+        "HINDSIGHT_LOG_FILE": "Override log file path",
+        "HINDSIGHT_BACKUP_DIR": "Override backup directory"
+    }
+}

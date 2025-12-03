@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod:*)",
+      "Bash(pip3 install:*)",
+      "Bash(pip3 search:*)",
+      "Bash(pip3 index:*)",
+      "Bash(uv:*)",
+      "Bash(python3.12:*)",
+      "Bash(python3.11:*)",
+      "Bash(/opt/homebrew/bin/python3.12 -m pip install:*)",
+      "Bash(/opt/homebrew/bin/python3.12:*)",
+      "Bash(source:*)",
+      "Bash(pip install:*)",
+      "Bash(~/.hindsight/.venv/bin/python3 -c \"import sys; sys.path.insert(0, ''$HOME/.hindsight''); from server import KnowledgeBaseServer; print(''Import successful'')\")",
+      "Bash(sqlite3:*)",
+      "Bash(timeout 5 ~/.hindsight/.venv/bin/python3:*)",
+      "Bash(~/.hindsight/.venv/bin/python3:*)",
+      "Bash(osascript:*)",
+      "Bash(open:*)",
+      "Bash(swift-sh:*)",
+      "Bash(python3:*)",
+      "Bash(~/.hindsight/backup.sh)",
+      "Bash(~/.hindsight/setup-backup-schedule.sh status)",
+      "Bash(~/.hindsight/.venv/bin/pip list:*)",
+      "Bash(~/.hindsight/.venv/bin/pip install:*)",
+      "Bash(~/.hindsight/.venv/bin/python -m pytest:*)",
+      "Bash(ls:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

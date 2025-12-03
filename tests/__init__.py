@@ -1,0 +1,1 @@
+# Hindsight MCP Server Tests
