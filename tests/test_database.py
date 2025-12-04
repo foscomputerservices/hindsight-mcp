@@ -4,7 +4,6 @@ Tests schema creation, CRUD operations, and data integrity.
 """
 
 import sqlite3
-from pathlib import Path
 
 import pytest
 
@@ -52,8 +51,7 @@ class TestSchemaCreation:
         fts_tables = ["lessons_fts", "errors_fts", "patterns_fts"]
         for table_name in fts_tables:
             cursor = db_connection.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-                (table_name,)
+                "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,)
             )
             assert cursor.fetchone() is not None, f"FTS table {table_name} not found"
 
@@ -65,7 +63,7 @@ class TestLessonsCRUD:
         """Test inserting a lesson."""
         cursor = db_connection.execute(
             "INSERT INTO lessons (title, content, category, technology) VALUES (?, ?, ?, ?)",
-            ("Test Title", "Test Content", "practice", "swift")
+            ("Test Title", "Test Content", "practice", "swift"),
         )
         db_connection.commit()
         assert cursor.lastrowid == 1
@@ -75,7 +73,7 @@ class TestLessonsCRUD:
         with pytest.raises(sqlite3.IntegrityError):
             db_connection.execute(
                 "INSERT INTO lessons (title, content, category) VALUES (?, ?, ?)",
-                ("Test", "Content", "invalid_category")
+                ("Test", "Content", "invalid_category"),
             )
 
     def test_lesson_categories(self, db_connection):
@@ -84,7 +82,7 @@ class TestLessonsCRUD:
         for i, category in enumerate(valid_categories):
             db_connection.execute(
                 "INSERT INTO lessons (title, content, category) VALUES (?, ?, ?)",
-                (f"Title {i}", f"Content {i}", category)
+                (f"Title {i}", f"Content {i}", category),
             )
         db_connection.commit()
 
@@ -95,7 +93,7 @@ class TestLessonsCRUD:
         """Test that created_at is automatically set."""
         db_connection.execute(
             "INSERT INTO lessons (title, content, category) VALUES (?, ?, ?)",
-            ("Test", "Content", "practice")
+            ("Test", "Content", "practice"),
         )
         db_connection.commit()
 
@@ -108,7 +106,7 @@ class TestLessonsCRUD:
         """Test selecting a lesson."""
         db_connection.execute(
             "INSERT INTO lessons (title, content, category, technology) VALUES (?, ?, ?, ?)",
-            ("SwiftUI Basics", "Learn SwiftUI fundamentals", "practice", "swift")
+            ("SwiftUI Basics", "Learn SwiftUI fundamentals", "practice", "swift"),
         )
         db_connection.commit()
 
@@ -121,14 +119,11 @@ class TestLessonsCRUD:
         """Test updating a lesson."""
         db_connection.execute(
             "INSERT INTO lessons (title, content, category) VALUES (?, ?, ?)",
-            ("Original", "Original content", "practice")
+            ("Original", "Original content", "practice"),
         )
         db_connection.commit()
 
-        db_connection.execute(
-            "UPDATE lessons SET title = ? WHERE id = 1",
-            ("Updated",)
-        )
+        db_connection.execute("UPDATE lessons SET title = ? WHERE id = 1", ("Updated",))
         db_connection.commit()
 
         cursor = db_connection.execute("SELECT title FROM lessons WHERE id = 1")
@@ -138,7 +133,7 @@ class TestLessonsCRUD:
         """Test deleting a lesson."""
         db_connection.execute(
             "INSERT INTO lessons (title, content, category) VALUES (?, ?, ?)",
-            ("To Delete", "Content", "practice")
+            ("To Delete", "Content", "practice"),
         )
         db_connection.commit()
 
@@ -171,7 +166,7 @@ class TestTagSystem:
         # Create lesson
         db_connection.execute(
             "INSERT INTO lessons (title, content, category) VALUES (?, ?, ?)",
-            ("Test Lesson", "Content", "practice")
+            ("Test Lesson", "Content", "practice"),
         )
         # Create tag
         db_connection.execute("INSERT INTO tags (name) VALUES (?)", ("testing",))
@@ -188,7 +183,7 @@ class TestTagSystem:
         """Test that deleting a lesson removes its tag associations."""
         db_connection.execute(
             "INSERT INTO lessons (title, content, category) VALUES (?, ?, ?)",
-            ("Test", "Content", "practice")
+            ("Test", "Content", "practice"),
         )
         db_connection.execute("INSERT INTO tags (name) VALUES (?)", ("tag1",))
         db_connection.execute("INSERT INTO lesson_tags (lesson_id, tag_id) VALUES (?, ?)", (1, 1))
@@ -208,7 +203,7 @@ class TestCommonErrorsCRUD:
         """Test inserting a common error."""
         cursor = db_connection.execute(
             "INSERT INTO common_errors (technology, error_pattern, solution) VALUES (?, ?, ?)",
-            ("swift", "Type mismatch", "Check types")
+            ("swift", "Type mismatch", "Check types"),
         )
         db_connection.commit()
         assert cursor.lastrowid == 1
@@ -217,7 +212,7 @@ class TestCommonErrorsCRUD:
         """Test that occurrence_count defaults to 1."""
         db_connection.execute(
             "INSERT INTO common_errors (technology, error_pattern, solution) VALUES (?, ?, ?)",
-            ("swift", "Error", "Fix it")
+            ("swift", "Error", "Fix it"),
         )
         db_connection.commit()
 
@@ -228,9 +223,11 @@ class TestCommonErrorsCRUD:
         """Test incrementing occurrence count."""
         db_connection.execute(
             "INSERT INTO common_errors (technology, error_pattern, solution) VALUES (?, ?, ?)",
-            ("swift", "Error", "Fix it")
+            ("swift", "Error", "Fix it"),
         )
-        db_connection.execute("UPDATE common_errors SET occurrence_count = occurrence_count + 1 WHERE id = 1")
+        db_connection.execute(
+            "UPDATE common_errors SET occurrence_count = occurrence_count + 1 WHERE id = 1"
+        )
         db_connection.commit()
 
         cursor = db_connection.execute("SELECT occurrence_count FROM common_errors WHERE id = 1")
@@ -244,7 +241,7 @@ class TestSwiftPatternsCRUD:
         """Test inserting a Swift pattern."""
         cursor = db_connection.execute(
             "INSERT INTO swift_patterns (pattern_name, description, code_example) VALUES (?, ?, ?)",
-            ("Singleton", "Thread-safe singleton pattern", "static let shared = MyClass()")
+            ("Singleton", "Thread-safe singleton pattern", "static let shared = MyClass()"),
         )
         db_connection.commit()
         assert cursor.lastrowid == 1
@@ -255,7 +252,7 @@ class TestSwiftPatternsCRUD:
             """INSERT INTO swift_patterns
                (pattern_name, description, code_example, ios_version, swift_version)
                VALUES (?, ?, ?, ?, ?)""",
-            ("Observation", "@Observable macro", "@Observable class Model {}", "17.0", "5.9")
+            ("Observation", "@Observable macro", "@Observable class Model {}", "17.0", "5.9"),
         )
         db_connection.commit()
 
@@ -274,7 +271,7 @@ class TestSessionsCRUD:
         """Test inserting a session."""
         cursor = db_connection.execute(
             "INSERT INTO sessions (date, project_name, summary) VALUES (?, ?, ?)",
-            ("2025-12-03", "TestProject", "Did some testing")
+            ("2025-12-03", "TestProject", "Did some testing"),
         )
         db_connection.commit()
         assert cursor.lastrowid == 1
@@ -296,7 +293,7 @@ class TestFTSTriggers:
         """Test that inserting a lesson updates FTS index."""
         db_connection.execute(
             "INSERT INTO lessons (title, content, category, technology) VALUES (?, ?, ?, ?)",
-            ("SwiftUI Animation", "Learn about animations", "pattern", "swift")
+            ("SwiftUI Animation", "Learn about animations", "pattern", "swift"),
         )
         db_connection.commit()
 
@@ -314,7 +311,7 @@ class TestFTSTriggers:
         """
         db_connection.execute(
             "INSERT INTO lessons (title, content, category) VALUES (?, ?, ?)",
-            ("UniqueSearchableTitle", "Content", "practice")
+            ("UniqueSearchableTitle", "Content", "practice"),
         )
         db_connection.commit()
 
@@ -344,7 +341,7 @@ class TestFTSTriggers:
         """Test that inserting an error updates FTS index."""
         db_connection.execute(
             "INSERT INTO common_errors (technology, error_pattern, solution) VALUES (?, ?, ?)",
-            ("swift", "XYZUniqueError pattern", "Fix the XYZ issue")
+            ("swift", "XYZUniqueError pattern", "Fix the XYZ issue"),
         )
         db_connection.commit()
 
@@ -357,7 +354,7 @@ class TestFTSTriggers:
         """Test that inserting a pattern updates FTS index."""
         db_connection.execute(
             "INSERT INTO swift_patterns (pattern_name, description, code_example) VALUES (?, ?, ?)",
-            ("UniquePatternXYZ", "A unique description", "code example")
+            ("UniquePatternXYZ", "A unique description", "code example"),
         )
         db_connection.commit()
 
@@ -375,16 +372,14 @@ class TestDataIntegrity:
         # Try to insert a lesson_tag with non-existent lesson
         with pytest.raises(sqlite3.IntegrityError):
             db_connection.execute(
-                "INSERT INTO lesson_tags (lesson_id, tag_id) VALUES (?, ?)",
-                (999, 1)
+                "INSERT INTO lesson_tags (lesson_id, tag_id) VALUES (?, ?)", (999, 1)
             )
 
     def test_required_fields_lesson(self, db_connection):
         """Test that required fields are enforced for lessons."""
         with pytest.raises(sqlite3.IntegrityError):
             db_connection.execute(
-                "INSERT INTO lessons (title, category) VALUES (?, ?)",
-                ("No content", "practice")
+                "INSERT INTO lessons (title, category) VALUES (?, ?)", ("No content", "practice")
             )
 
     def test_required_fields_error(self, db_connection):
@@ -392,5 +387,5 @@ class TestDataIntegrity:
         with pytest.raises(sqlite3.IntegrityError):
             db_connection.execute(
                 "INSERT INTO common_errors (technology, error_pattern) VALUES (?, ?)",
-                ("swift", "No solution")
+                ("swift", "No solution"),
             )

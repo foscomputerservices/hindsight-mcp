@@ -15,15 +15,15 @@ import logging
 import os
 import sqlite3
 import time
+from collections.abc import Sequence
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Any, Optional, Sequence
+from typing import Any
 
 from mcp.server import Server
-from mcp.types import Tool, TextContent
 from mcp.server.stdio import stdio_server
-
+from mcp.types import TextContent, Tool
 
 # Configuration with environment variable overrides
 HINDSIGHT_DIR = Path.home() / ".hindsight"
@@ -38,25 +38,21 @@ def load_config() -> dict:
             "connection_timeout": 30,
             "busy_timeout": 5000,
             "max_retries": 3,
-            "retry_delay": 0.5
+            "retry_delay": 0.5,
         },
-        "search": {
-            "default_limit": 10,
-            "max_limit": 100,
-            "min_relevance_score": 0.1
-        },
+        "search": {"default_limit": 10, "max_limit": 100, "min_relevance_score": 0.1},
         "logging": {
             "level": "INFO",
             "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
             "file": str(HINDSIGHT_DIR / "logs" / "hindsight.log"),
             "max_size_mb": 10,
-            "backup_count": 5
-        }
+            "backup_count": 5,
+        },
     }
 
     if CONFIG_PATH.exists():
         try:
-            with open(CONFIG_PATH, 'r') as f:
+            with open(CONFIG_PATH) as f:
                 user_config = json.load(f)
                 # Deep merge user config into defaults
                 for key in defaults:
@@ -64,7 +60,7 @@ def load_config() -> dict:
                         defaults[key].update(user_config[key])
                     elif key in user_config:
                         defaults[key] = user_config[key]
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             pass  # Use defaults on error
 
     return defaults
@@ -112,12 +108,12 @@ def setup_logging(config: dict) -> logging.Logger:
         file_handler = RotatingFileHandler(
             log_file,
             maxBytes=log_config["max_size_mb"] * 1024 * 1024,
-            backupCount=log_config["backup_count"]
+            backupCount=log_config["backup_count"],
         )
         file_handler.setLevel(log_level)
         file_handler.setFormatter(logging.Formatter(log_config["format"]))
         logger.addHandler(file_handler)
-    except (IOError, PermissionError) as e:
+    except (OSError, PermissionError) as e:
         logger.warning("Could not create log file %s: %s", log_file, e)
 
     return logger
@@ -175,8 +171,7 @@ class KnowledgeBaseServer:
         for attempt in range(retries + 1):
             try:
                 conn = sqlite3.connect(
-                    self.db_path,
-                    timeout=self.db_config.get("connection_timeout", 30)
+                    self.db_path, timeout=self.db_config.get("connection_timeout", 30)
                 )
                 conn.row_factory = sqlite3.Row
                 conn.execute("PRAGMA foreign_keys = ON")
@@ -187,7 +182,9 @@ class KnowledgeBaseServer:
                 if attempt < retries:
                     logger.warning(
                         "Database connection attempt %d failed: %s. Retrying in %ss...",
-                        attempt + 1, e, retry_delay
+                        attempt + 1,
+                        e,
+                        retry_delay,
                     )
                     time.sleep(retry_delay)
                     retry_delay *= 2  # Exponential backoff
@@ -252,8 +249,14 @@ class KnowledgeBaseServer:
         finally:
             conn.close()
 
-    def _search_lessons(self, conn: sqlite3.Connection, query: str,
-                       technology: Optional[str], tags: list[str], limit: int) -> list[dict]:
+    def _search_lessons(
+        self,
+        conn: sqlite3.Connection,
+        query: str,
+        technology: str | None,
+        tags: list[str],
+        limit: int,
+    ) -> list[dict]:
         """Search lessons using FTS."""
         results = []
 
@@ -281,11 +284,14 @@ class KnowledgeBaseServer:
             result = dict(row)
             result["type"] = "lesson"
             # Fetch tags for this lesson
-            tag_cursor = conn.execute("""
+            tag_cursor = conn.execute(
+                """
                 SELECT t.name FROM tags t
                 JOIN lesson_tags lt ON t.id = lt.tag_id
                 WHERE lt.lesson_id = ?
-            """, (result["id"],))
+            """,
+                (result["id"],),
+            )
             result["tags"] = [t["name"] for t in tag_cursor]
 
             # Filter by tags if specified
@@ -296,8 +302,9 @@ class KnowledgeBaseServer:
 
         return results
 
-    def _search_errors(self, conn: sqlite3.Connection, query: str,
-                      technology: Optional[str], limit: int) -> list[dict]:
+    def _search_errors(
+        self, conn: sqlite3.Connection, query: str, technology: str | None, limit: int
+    ) -> list[dict]:
         """Search common errors using FTS."""
         results = []
 
@@ -503,12 +510,14 @@ class KnowledgeBaseServer:
             all_techs = set(lesson_counts.keys()) | set(error_counts.keys())
             results = []
             for tech in sorted(all_techs):
-                results.append({
-                    "technology": tech,
-                    "lesson_count": lesson_counts.get(tech, 0),
-                    "error_count": error_counts.get(tech, 0),
-                    "total_count": lesson_counts.get(tech, 0) + error_counts.get(tech, 0)
-                })
+                results.append(
+                    {
+                        "technology": tech,
+                        "lesson_count": lesson_counts.get(tech, 0),
+                        "error_count": error_counts.get(tech, 0),
+                        "total_count": lesson_counts.get(tech, 0) + error_counts.get(tech, 0),
+                    }
+                )
 
             return results
         finally:
@@ -533,10 +542,7 @@ class KnowledgeBaseServer:
 
             results = []
             for row in cursor:
-                results.append({
-                    "tag": row["name"],
-                    "usage_count": row["usage_count"]
-                })
+                results.append({"tag": row["name"], "usage_count": row["usage_count"]})
 
             return results
         finally:
@@ -576,10 +582,13 @@ class KnowledgeBaseServer:
 
         conn = self._get_connection()
         try:
-            cursor = conn.execute("""
+            cursor = conn.execute(
+                """
                 INSERT INTO lessons (title, content, category, technology, project_context, source_session)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, (title, content, category, technology, project_context, source_session))
+            """,
+                (title, content, category, technology, project_context, source_session),
+            )
 
             lesson_id = cursor.lastrowid
 
@@ -593,7 +602,7 @@ class KnowledgeBaseServer:
                 # Link tag to lesson
                 conn.execute(
                     "INSERT OR IGNORE INTO lesson_tags (lesson_id, tag_id) VALUES (?, ?)",
-                    (lesson_id, tag_id)
+                    (lesson_id, tag_id),
                 )
 
             conn.commit()
@@ -602,7 +611,7 @@ class KnowledgeBaseServer:
             return {
                 "success": True,
                 "id": lesson_id,
-                "message": f"Lesson '{title}' added successfully"
+                "message": f"Lesson '{title}' added successfully",
             }
 
         except sqlite3.Error as e:
@@ -641,20 +650,19 @@ class KnowledgeBaseServer:
 
         conn = self._get_connection()
         try:
-            cursor = conn.execute("""
+            cursor = conn.execute(
+                """
                 INSERT INTO common_errors (technology, error_pattern, root_cause, solution, code_example)
                 VALUES (?, ?, ?, ?, ?)
-            """, (technology, error_pattern, root_cause, solution, code_example))
+            """,
+                (technology, error_pattern, root_cause, solution, code_example),
+            )
 
             error_id = cursor.lastrowid
             conn.commit()
             logger.info("Added common error %d: %s", error_id, error_pattern[:50])
 
-            return {
-                "success": True,
-                "id": error_id,
-                "message": f"Common error added successfully"
-            }
+            return {"success": True, "id": error_id, "message": "Common error added successfully"}
 
         except sqlite3.Error as e:
             logger.error("Failed to add common error: %s", e)
@@ -701,13 +709,24 @@ class KnowledgeBaseServer:
 
         conn = self._get_connection()
         try:
-            cursor = conn.execute("""
+            cursor = conn.execute(
+                """
                 INSERT INTO swift_patterns
                 (pattern_name, description, code_example, when_to_use, when_not_to_use,
                  related_apis, ios_version, swift_version)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (pattern_name, description, code_example, when_to_use, when_not_to_use,
-                  related_apis_json, ios_version, swift_version))
+            """,
+                (
+                    pattern_name,
+                    description,
+                    code_example,
+                    when_to_use,
+                    when_not_to_use,
+                    related_apis_json,
+                    ios_version,
+                    swift_version,
+                ),
+            )
 
             pattern_id = cursor.lastrowid
             conn.commit()
@@ -716,7 +735,7 @@ class KnowledgeBaseServer:
             return {
                 "success": True,
                 "id": pattern_id,
-                "message": f"Swift pattern '{pattern_name}' added successfully"
+                "message": f"Swift pattern '{pattern_name}' added successfully",
             }
 
         except sqlite3.Error as e:
@@ -755,10 +774,13 @@ class KnowledgeBaseServer:
 
         conn = self._get_connection()
         try:
-            cursor = conn.execute("""
+            cursor = conn.execute(
+                """
                 INSERT INTO sessions (date, project_name, session_log_path, summary)
                 VALUES (?, ?, ?, ?)
-            """, (date_str, project_name, session_log_path, summary))
+            """,
+                (date_str, project_name, session_log_path, summary),
+            )
 
             session_id = cursor.lastrowid
             conn.commit()
@@ -767,7 +789,7 @@ class KnowledgeBaseServer:
             return {
                 "success": True,
                 "id": session_id,
-                "message": f"Session for {date_str} added successfully"
+                "message": f"Session for {date_str} added successfully",
             }
 
         except sqlite3.Error as e:
@@ -845,7 +867,7 @@ class KnowledgeBaseServer:
                     tag_id = tag_cursor.fetchone()["id"]
                     conn.execute(
                         "INSERT OR IGNORE INTO lesson_tags (lesson_id, tag_id) VALUES (?, ?)",
-                        (lesson_id, tag_id)
+                        (lesson_id, tag_id),
                     )
 
             conn.commit()
@@ -854,7 +876,7 @@ class KnowledgeBaseServer:
             return {
                 "success": True,
                 "id": lesson_id,
-                "message": f"Lesson {lesson_id} updated successfully"
+                "message": f"Lesson {lesson_id} updated successfully",
             }
 
         except sqlite3.Error as e:
@@ -881,8 +903,7 @@ class KnowledgeBaseServer:
         try:
             # Check error exists and get current count
             cursor = conn.execute(
-                "SELECT id, occurrence_count FROM common_errors WHERE id = ?",
-                (error_id,)
+                "SELECT id, occurrence_count FROM common_errors WHERE id = ?", (error_id,)
             )
             row = cursor.fetchone()
             if not row:
@@ -890,8 +911,7 @@ class KnowledgeBaseServer:
 
             new_count = row["occurrence_count"] + 1
             conn.execute(
-                "UPDATE common_errors SET occurrence_count = ? WHERE id = ?",
-                (new_count, error_id)
+                "UPDATE common_errors SET occurrence_count = ? WHERE id = ?", (new_count, error_id)
             )
             conn.commit()
             logger.info("Incremented error %d count to %d", error_id, new_count)
@@ -900,7 +920,7 @@ class KnowledgeBaseServer:
                 "success": True,
                 "id": error_id,
                 "occurrence_count": new_count,
-                "message": f"Error occurrence count incremented to {new_count}"
+                "message": f"Error occurrence count incremented to {new_count}",
             }
 
         except sqlite3.Error as e:
@@ -954,8 +974,7 @@ class KnowledgeBaseServer:
                 LIMIT 10
             """)
             stats["top_technologies"] = [
-                {"technology": row["technology"], "count": row["count"]}
-                for row in cursor
+                {"technology": row["technology"], "count": row["count"]} for row in cursor
             ]
 
             # Most common errors (by occurrence)
@@ -970,7 +989,7 @@ class KnowledgeBaseServer:
                     "id": row["id"],
                     "technology": row["technology"],
                     "error_pattern": row["error_pattern"][:100],
-                    "occurrence_count": row["occurrence_count"]
+                    "occurrence_count": row["occurrence_count"],
                 }
                 for row in cursor
             ]
@@ -988,15 +1007,13 @@ class KnowledgeBaseServer:
                     "title": row["title"],
                     "category": row["category"],
                     "technology": row["technology"],
-                    "created_at": row["created_at"]
+                    "created_at": row["created_at"],
                 }
                 for row in cursor
             ]
 
             # Total error occurrences
-            cursor = conn.execute(
-                "SELECT SUM(occurrence_count) as total FROM common_errors"
-            )
+            cursor = conn.execute("SELECT SUM(occurrence_count) as total FROM common_errors")
             stats["total_error_occurrences"] = cursor.fetchone()["total"] or 0
 
             return stats
@@ -1025,17 +1042,13 @@ class KnowledgeBaseServer:
 
         conn = self._get_connection()
         try:
-            export = {
-                "exported_at": datetime.now().isoformat(),
-                "version": "1.0"
-            }
+            export = {"exported_at": datetime.now().isoformat(), "version": "1.0"}
 
             # Export lessons
             if category in ("all", "lesson"):
                 if technology:
                     cursor = conn.execute(
-                        "SELECT * FROM lessons WHERE technology = ?",
-                        (technology,)
+                        "SELECT * FROM lessons WHERE technology = ?", (technology,)
                     )
                 else:
                     cursor = conn.execute("SELECT * FROM lessons")
@@ -1044,11 +1057,14 @@ class KnowledgeBaseServer:
                 for row in cursor:
                     lesson = dict(row)
                     # Get tags for this lesson
-                    tag_cursor = conn.execute("""
+                    tag_cursor = conn.execute(
+                        """
                         SELECT t.name FROM tags t
                         JOIN lesson_tags lt ON t.id = lt.tag_id
                         WHERE lt.lesson_id = ?
-                    """, (lesson["id"],))
+                    """,
+                        (lesson["id"],),
+                    )
                     lesson["tags"] = [t["name"] for t in tag_cursor]
                     lessons.append(lesson)
                 export["lessons"] = lessons
@@ -1057,8 +1073,7 @@ class KnowledgeBaseServer:
             if category in ("all", "error"):
                 if technology:
                     cursor = conn.execute(
-                        "SELECT * FROM common_errors WHERE technology = ?",
-                        (technology,)
+                        "SELECT * FROM common_errors WHERE technology = ?", (technology,)
                     )
                 else:
                     cursor = conn.execute("SELECT * FROM common_errors")
@@ -1105,337 +1120,296 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="query_knowledge",
             description="Search the knowledge base for relevant learnings, errors, and patterns. "
-                       "Use this to find solutions to problems, best practices, and coding patterns.",
+            "Use this to find solutions to problems, best practices, and coding patterns.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "Search terms to find relevant knowledge"
+                        "description": "Search terms to find relevant knowledge",
                     },
                     "category": {
                         "type": "string",
                         "enum": ["lesson", "error", "pattern", "all"],
                         "description": "Filter by category: lesson, error, pattern, or all",
-                        "default": "all"
+                        "default": "all",
                     },
                     "technology": {
                         "type": "string",
-                        "description": "Filter by technology (e.g., swift, xcode, bitbucket)"
+                        "description": "Filter by technology (e.g., swift, xcode, bitbucket)",
                     },
                     "tags": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Filter by tags"
+                        "description": "Filter by tags",
                     },
                     "limit": {
                         "type": "integer",
                         "description": "Maximum number of results (default: 10, max: 100)",
-                        "default": 10
-                    }
+                        "default": 10,
+                    },
                 },
-                "required": ["query"]
-            }
+                "required": ["query"],
+            },
         ),
         Tool(
             name="add_lesson",
             description="Add a new lesson or learning to the knowledge base. "
-                       "Use this to record insights, patterns, practices, gotchas, or decisions.",
+            "Use this to record insights, patterns, practices, gotchas, or decisions.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "title": {
-                        "type": "string",
-                        "description": "Brief title for the lesson"
-                    },
+                    "title": {"type": "string", "description": "Brief title for the lesson"},
                     "content": {
                         "type": "string",
-                        "description": "Detailed description of the lesson or learning"
+                        "description": "Detailed description of the lesson or learning",
                     },
                     "category": {
                         "type": "string",
                         "enum": ["pattern", "practice", "gotcha", "decision"],
-                        "description": "Category: pattern (code pattern), practice (best practice), gotcha (common pitfall), decision (architectural decision)"
+                        "description": "Category: pattern (code pattern), practice (best practice), gotcha (common pitfall), decision (architectural decision)",
                     },
                     "technology": {
                         "type": "string",
-                        "description": "Technology this applies to (e.g., swift, xcode, bitbucket)"
+                        "description": "Technology this applies to (e.g., swift, xcode, bitbucket)",
                     },
                     "tags": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Tags for categorization"
+                        "description": "Tags for categorization",
                     },
                     "project_context": {
                         "type": "string",
-                        "description": "Optional project this lesson came from"
+                        "description": "Optional project this lesson came from",
                     },
                     "source_session": {
                         "type": "string",
-                        "description": "Optional path to the session log where this was learned"
-                    }
+                        "description": "Optional path to the session log where this was learned",
+                    },
                 },
-                "required": ["title", "content", "category"]
-            }
+                "required": ["title", "content", "category"],
+            },
         ),
         Tool(
             name="search_errors",
             description="Search for common errors and their solutions. "
-                       "Use this to find fixes for error messages or known issues.",
+            "Use this to find fixes for error messages or known issues.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "Error message or description to search for"
+                        "description": "Error message or description to search for",
                     },
                     "technology": {
                         "type": "string",
-                        "description": "Filter by technology (e.g., swift, xcode, python)"
+                        "description": "Filter by technology (e.g., swift, xcode, python)",
                     },
                     "limit": {
                         "type": "integer",
                         "description": "Maximum number of results (default: 10, max: 100)",
-                        "default": 10
-                    }
-                }
-            }
+                        "default": 10,
+                    },
+                },
+            },
         ),
         Tool(
             name="get_swift_patterns",
             description="Retrieve Swift coding patterns with code examples. "
-                       "Use this to find idiomatic Swift patterns for common tasks.",
+            "Use this to find idiomatic Swift patterns for common tasks.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "Pattern name or description to search for"
+                        "description": "Pattern name or description to search for",
                     },
                     "ios_version": {
                         "type": "string",
-                        "description": "Filter patterns available for this iOS version (e.g., '17.0')"
+                        "description": "Filter patterns available for this iOS version (e.g., '17.0')",
                     },
                     "swift_version": {
                         "type": "string",
-                        "description": "Filter patterns available for this Swift version (e.g., '5.9')"
+                        "description": "Filter patterns available for this Swift version (e.g., '5.9')",
                     },
                     "limit": {
                         "type": "integer",
                         "description": "Maximum number of results (default: 10, max: 100)",
-                        "default": 10
-                    }
-                }
-            }
+                        "default": 10,
+                    },
+                },
+            },
         ),
         Tool(
             name="list_technologies",
             description="List all technologies in the knowledge base with entry counts. "
-                       "Use this to see what technologies have documented knowledge.",
-            inputSchema={
-                "type": "object",
-                "properties": {}
-            }
+            "Use this to see what technologies have documented knowledge.",
+            inputSchema={"type": "object", "properties": {}},
         ),
         Tool(
             name="list_tags",
             description="List all tags in the knowledge base with usage counts. "
-                       "Use this to browse available categories and find related lessons.",
-            inputSchema={
-                "type": "object",
-                "properties": {}
-            }
+            "Use this to browse available categories and find related lessons.",
+            inputSchema={"type": "object", "properties": {}},
         ),
         Tool(
             name="add_common_error",
             description="Add a common error and its solution to the knowledge base. "
-                       "Use this to record error patterns you've encountered and how to fix them.",
+            "Use this to record error patterns you've encountered and how to fix them.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "technology": {
                         "type": "string",
-                        "description": "Technology this error applies to (e.g., swift, xcode, python)"
+                        "description": "Technology this error applies to (e.g., swift, xcode, python)",
                     },
                     "error_pattern": {
                         "type": "string",
-                        "description": "The error message or pattern to match"
+                        "description": "The error message or pattern to match",
                     },
-                    "solution": {
-                        "type": "string",
-                        "description": "How to fix this error"
-                    },
+                    "solution": {"type": "string", "description": "How to fix this error"},
                     "root_cause": {
                         "type": "string",
-                        "description": "What causes this error (optional)"
+                        "description": "What causes this error (optional)",
                     },
                     "code_example": {
                         "type": "string",
-                        "description": "Code example showing the fix (optional)"
-                    }
+                        "description": "Code example showing the fix (optional)",
+                    },
                 },
-                "required": ["technology", "error_pattern", "solution"]
-            }
+                "required": ["technology", "error_pattern", "solution"],
+            },
         ),
         Tool(
             name="add_swift_pattern",
             description="Add a Swift coding pattern to the knowledge base. "
-                       "Use this to record reusable Swift patterns with code examples.",
+            "Use this to record reusable Swift patterns with code examples.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "pattern_name": {
-                        "type": "string",
-                        "description": "Name of the pattern"
-                    },
-                    "description": {
-                        "type": "string",
-                        "description": "What this pattern does"
-                    },
+                    "pattern_name": {"type": "string", "description": "Name of the pattern"},
+                    "description": {"type": "string", "description": "What this pattern does"},
                     "code_example": {
                         "type": "string",
-                        "description": "Code example demonstrating the pattern"
+                        "description": "Code example demonstrating the pattern",
                     },
                     "when_to_use": {
                         "type": "string",
-                        "description": "When to use this pattern (optional)"
+                        "description": "When to use this pattern (optional)",
                     },
                     "when_not_to_use": {
                         "type": "string",
-                        "description": "When NOT to use this pattern (optional)"
+                        "description": "When NOT to use this pattern (optional)",
                     },
                     "related_apis": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Related API names (optional)"
+                        "description": "Related API names (optional)",
                     },
                     "ios_version": {
                         "type": "string",
-                        "description": "Minimum iOS version required (e.g., '17.0')"
+                        "description": "Minimum iOS version required (e.g., '17.0')",
                     },
                     "swift_version": {
                         "type": "string",
-                        "description": "Minimum Swift version required (e.g., '5.9')"
-                    }
+                        "description": "Minimum Swift version required (e.g., '5.9')",
+                    },
                 },
-                "required": ["pattern_name", "description", "code_example"]
-            }
+                "required": ["pattern_name", "description", "code_example"],
+            },
         ),
         Tool(
             name="add_session_context",
             description="Add a development session context to the knowledge base. "
-                       "Use this to record session metadata and link to session logs.",
+            "Use this to record session metadata and link to session logs.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "date": {
-                        "type": "string",
-                        "description": "Session date in YYYY-MM-DD format"
-                    },
+                    "date": {"type": "string", "description": "Session date in YYYY-MM-DD format"},
                     "project_name": {
                         "type": "string",
-                        "description": "Name of the project (optional)"
+                        "description": "Name of the project (optional)",
                     },
                     "session_log_path": {
                         "type": "string",
-                        "description": "Path to the session log file (optional)"
+                        "description": "Path to the session log file (optional)",
                     },
                     "summary": {
                         "type": "string",
-                        "description": "Brief summary of what was accomplished (optional)"
-                    }
+                        "description": "Brief summary of what was accomplished (optional)",
+                    },
                 },
-                "required": ["date"]
-            }
+                "required": ["date"],
+            },
         ),
         Tool(
             name="update_lesson",
             description="Update an existing lesson in the knowledge base. "
-                       "Use this to modify lesson content, tags, or metadata.",
+            "Use this to modify lesson content, tags, or metadata.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "id": {
-                        "type": "integer",
-                        "description": "Lesson ID to update"
-                    },
-                    "title": {
-                        "type": "string",
-                        "description": "New title (optional)"
-                    },
-                    "content": {
-                        "type": "string",
-                        "description": "New content (optional)"
-                    },
+                    "id": {"type": "integer", "description": "Lesson ID to update"},
+                    "title": {"type": "string", "description": "New title (optional)"},
+                    "content": {"type": "string", "description": "New content (optional)"},
                     "category": {
                         "type": "string",
                         "enum": ["pattern", "practice", "gotcha", "decision"],
-                        "description": "New category (optional)"
+                        "description": "New category (optional)",
                     },
-                    "technology": {
-                        "type": "string",
-                        "description": "New technology (optional)"
-                    },
+                    "technology": {"type": "string", "description": "New technology (optional)"},
                     "tags": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "New tags - replaces existing tags (optional)"
+                        "description": "New tags - replaces existing tags (optional)",
                     },
                     "project_context": {
                         "type": "string",
-                        "description": "New project context (optional)"
-                    }
+                        "description": "New project context (optional)",
+                    },
                 },
-                "required": ["id"]
-            }
+                "required": ["id"],
+            },
         ),
         Tool(
             name="increment_error_count",
             description="Increment the occurrence count for a common error. "
-                       "Use this when you encounter a known error again.",
+            "Use this when you encounter a known error again.",
             inputSchema={
                 "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "integer",
-                        "description": "Error ID to increment"
-                    }
-                },
-                "required": ["id"]
-            }
+                "properties": {"id": {"type": "integer", "description": "Error ID to increment"}},
+                "required": ["id"],
+            },
         ),
         Tool(
             name="get_statistics",
             description="Get dashboard-style statistics about the knowledge base. "
-                       "Use this to see an overview of stored knowledge.",
-            inputSchema={
-                "type": "object",
-                "properties": {}
-            }
+            "Use this to see an overview of stored knowledge.",
+            inputSchema={"type": "object", "properties": {}},
         ),
         Tool(
             name="export_knowledge",
             description="Export knowledge base entries as JSON. "
-                       "Use this to backup or transfer knowledge data.",
+            "Use this to backup or transfer knowledge data.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "category": {
                         "type": "string",
                         "enum": ["lesson", "error", "pattern", "all"],
-                        "description": "Filter by category (default: all)"
+                        "description": "Filter by category (default: all)",
                     },
                     "technology": {
                         "type": "string",
-                        "description": "Filter by technology (optional)"
+                        "description": "Filter by technology (optional)",
                     },
                     "include_sessions": {
                         "type": "boolean",
-                        "description": "Include session data (default: false)"
-                    }
-                }
-            }
-        )
+                        "description": "Include session data (default: false)",
+                    },
+                },
+            },
+        ),
     ]
 
 
@@ -1484,11 +1458,7 @@ async def main():
     logger.info("Starting Hindsight MCP Server")
 
     async with stdio_server() as (read_stream, write_stream):
-        await server.run(
-            read_stream,
-            write_stream,
-            server.create_initialization_options()
-        )
+        await server.run(read_stream, write_stream, server.create_initialization_options())
 
 
 if __name__ == "__main__":

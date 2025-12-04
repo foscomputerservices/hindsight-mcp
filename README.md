@@ -21,7 +21,32 @@ A Model Context Protocol (MCP) server that maintains a searchable knowledge base
 
 ## Installation
 
-### Quick Install
+### Homebrew (Recommended for macOS)
+
+The easiest way to install on macOS:
+
+```bash
+# Add the tap (one-time)
+brew tap foscomputerservices/tap
+
+# Install hindsight-mcp
+brew install hindsight-mcp
+
+# Initialize and auto-configure Claude Desktop/Code
+hindsight-init
+```
+
+The `hindsight-init` command will:
+- Create `~/.hindsight/` runtime directory
+- Initialize the database
+- Automatically configure Claude Desktop (if installed)
+- Automatically configure Claude Code (if installed)
+
+After initialization, restart Claude Desktop to activate.
+
+### Quick Install (Alternative)
+
+If you prefer not to use Homebrew:
 
 ```bash
 # Clone the repository
@@ -66,8 +91,12 @@ sqlite3 ~/.hindsight/knowledge.db < ~/.hindsight/schema.sql
 
 ### Updating
 
-To update to the latest version:
+**Homebrew:**
+```bash
+brew upgrade hindsight-mcp
+```
 
+**Manual install:**
 ```bash
 cd /path/to/hindsight-mcp
 git pull
@@ -78,11 +107,25 @@ Your database and config are preserved during updates.
 
 ### Claude Desktop Configuration
 
+> **Note:** If you installed via Homebrew, `hindsight-init` configures this automatically.
+
 Add to your `claude_desktop_config.json`:
 
 **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
 **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
 
+**Homebrew installation:**
+```json
+{
+  "mcpServers": {
+    "hindsight": {
+      "command": "hindsight-server"
+    }
+  }
+}
+```
+
+**Manual installation:**
 ```json
 {
   "mcpServers": {
@@ -100,32 +143,24 @@ Restart Claude Desktop after configuration.
 
 ### Claude Code (CLI) Configuration
 
-**Option 1: CLI command**
+> **Note:** If you installed via Homebrew, `hindsight-init` configures this automatically.
+
+**Homebrew installation:**
+```bash
+claude mcp add hindsight -- hindsight-server
+```
+
+**Manual installation:**
 ```bash
 claude mcp add hindsight -- ~/.hindsight/.venv/bin/python ~/.hindsight/server.py
 ```
 
-**Option 2: Project-level config** (`.mcp.json` in project root)
+Alternatively, add to `~/.claude/settings.json`:
 ```json
 {
   "mcpServers": {
     "hindsight": {
-      "type": "stdio",
-      "command": "/Users/YOUR_USERNAME/.hindsight/.venv/bin/python",
-      "args": ["/Users/YOUR_USERNAME/.hindsight/server.py"]
-    }
-  }
-}
-```
-
-**Option 3: User-level config** (`~/.claude/settings.json`)
-```json
-{
-  "mcpServers": {
-    "hindsight": {
-      "type": "stdio",
-      "command": "/Users/YOUR_USERNAME/.hindsight/.venv/bin/python",
-      "args": ["/Users/YOUR_USERNAME/.hindsight/server.py"]
+      "command": "hindsight-server"
     }
   }
 }
@@ -332,10 +367,70 @@ pytest tests/ -v -m "not slow"
 pytest tests/ --cov=server --cov-report=html
 ```
 
+### Linting
+
+```bash
+# Install ruff
+pip install ruff
+
+# Check for issues
+ruff check .
+
+# Auto-fix issues
+ruff check . --fix
+
+# Check formatting
+ruff format --check .
+
+# Apply formatting
+ruff format .
+```
+
 ### Loading Seed Data
 
 ```bash
 sqlite3 ~/.hindsight/knowledge.db < test-data.sql
+```
+
+## Releasing
+
+Releases are automated via GitHub Actions when you push a version tag.
+
+### Creating a Release
+
+```bash
+# Ensure you're on main with everything committed
+git checkout main
+git pull
+
+# Create an annotated tag
+git tag -a v1.0.0 -m "Release description"
+
+# Push the tag (triggers the release workflow)
+git push origin v1.0.0
+```
+
+### Tag Format
+
+- `v1.0.0` - Stable release
+- `v1.1.0-beta.1` - Prerelease (automatically marked as prerelease)
+
+### What Happens
+
+1. Release workflow runs the full test suite (including slow tests)
+2. Creates a tarball with all server files
+3. Generates changelog from commits since the last tag
+4. Publishes a GitHub Release with the archive
+
+### Managing Tags
+
+```bash
+# List existing tags
+git tag -l
+
+# Delete a tag (if needed)
+git tag -d v1.0.0           # Delete locally
+git push origin :v1.0.0     # Delete from remote
 ```
 
 ## Troubleshooting

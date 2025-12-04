@@ -1,0 +1,93 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio
+
+      - name: Run all tests (including slow)
+        run: pytest tests/ -v
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Create release archive
+        run: |
+          mkdir -p dist
+          tar -czvf dist/hindsight-${{ steps.version.outputs.VERSION }}.tar.gz \
+            server.py \
+            schema.sql \
+            config.json \
+            install.sh \
+            backup.sh \
+            requirements.txt \
+            README.md \
+            LICENSE
+
+      - name: Generate changelog from commits
+        id: changelog
+        run: |
+          # Get commits since last tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            COMMITS=$(git log --pretty=format:"- %s" $PREV_TAG..HEAD)
+          else
+            COMMITS=$(git log --pretty=format:"- %s")
+          fi
+          echo "COMMITS<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMITS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/hindsight-${{ steps.version.outputs.VERSION }}.tar.gz
+          body: |
+            ## Hindsight v${{ steps.version.outputs.VERSION }}
+
+            ### Changes
+            ${{ steps.changelog.outputs.COMMITS }}
+
+            ### Installation
+
+            **Homebrew (recommended):**
+            ```bash
+            brew tap foscomputerservices/tap
+            brew install hindsight-mcp
+            hindsight-init
+            ```
+
+            **Manual:**
+            ```bash
+            tar -xzf hindsight-${{ steps.version.outputs.VERSION }}.tar.gz
+            ./install.sh
+            ```
+          draft: false
+          prerelease: ${{ contains(github.ref, '-') }}

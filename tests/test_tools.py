@@ -3,7 +3,6 @@ Integration tests for MCP tool calls.
 Tests the KnowledgeBaseServer methods that implement each MCP tool.
 """
 
-import json
 import sys
 from pathlib import Path
 
@@ -27,43 +26,39 @@ class TestAddLesson:
     @pytest.mark.asyncio
     async def test_add_lesson_missing_title(self, knowledge_base_server):
         """Test that missing title returns error."""
-        result = await knowledge_base_server.add_lesson({
-            "content": "Content",
-            "category": "practice"
-        })
+        result = await knowledge_base_server.add_lesson(
+            {"content": "Content", "category": "practice"}
+        )
         assert "error" in result
         assert "title" in result["error"]
 
     @pytest.mark.asyncio
     async def test_add_lesson_missing_content(self, knowledge_base_server):
         """Test that missing content returns error."""
-        result = await knowledge_base_server.add_lesson({
-            "title": "Title",
-            "category": "practice"
-        })
+        result = await knowledge_base_server.add_lesson({"title": "Title", "category": "practice"})
         assert "error" in result
         assert "content" in result["error"]
 
     @pytest.mark.asyncio
     async def test_add_lesson_invalid_category(self, knowledge_base_server):
         """Test that invalid category returns error."""
-        result = await knowledge_base_server.add_lesson({
-            "title": "Title",
-            "content": "Content",
-            "category": "invalid"
-        })
+        result = await knowledge_base_server.add_lesson(
+            {"title": "Title", "content": "Content", "category": "invalid"}
+        )
         assert "error" in result
         assert "category" in result["error"]
 
     @pytest.mark.asyncio
     async def test_add_lesson_with_tags(self, knowledge_base_server):
         """Test adding a lesson with tags."""
-        result = await knowledge_base_server.add_lesson({
-            "title": "Test",
-            "content": "Content",
-            "category": "practice",
-            "tags": ["tag1", "tag2"]
-        })
+        result = await knowledge_base_server.add_lesson(
+            {
+                "title": "Test",
+                "content": "Content",
+                "category": "practice",
+                "tags": ["tag1", "tag2"],
+            }
+        )
         assert result["success"] is True
 
         # Verify tags were created
@@ -86,9 +81,7 @@ class TestAddCommonError:
     @pytest.mark.asyncio
     async def test_add_error_missing_required(self, knowledge_base_server):
         """Test that missing required fields return errors."""
-        result = await knowledge_base_server.add_common_error({
-            "technology": "swift"
-        })
+        result = await knowledge_base_server.add_common_error({"technology": "swift"})
         assert "error" in result
 
 
@@ -105,12 +98,14 @@ class TestAddSwiftPattern:
     @pytest.mark.asyncio
     async def test_add_pattern_with_apis(self, knowledge_base_server):
         """Test adding pattern with related APIs."""
-        result = await knowledge_base_server.add_swift_pattern({
-            "pattern_name": "Test Pattern",
-            "description": "A test pattern",
-            "code_example": "// code",
-            "related_apis": ["API1", "API2"]
-        })
+        result = await knowledge_base_server.add_swift_pattern(
+            {
+                "pattern_name": "Test Pattern",
+                "description": "A test pattern",
+                "code_example": "// code",
+                "related_apis": ["API1", "API2"],
+            }
+        )
         assert result["success"] is True
 
         # Verify APIs are stored
@@ -125,19 +120,19 @@ class TestAddSessionContext:
     @pytest.mark.asyncio
     async def test_add_session_success(self, knowledge_base_server):
         """Test adding a session context."""
-        result = await knowledge_base_server.add_session_context({
-            "date": "2025-12-03",
-            "project_name": "TestProject",
-            "summary": "Test session"
-        })
+        result = await knowledge_base_server.add_session_context(
+            {"date": "2025-12-03", "project_name": "TestProject", "summary": "Test session"}
+        )
         assert result["success"] is True
 
     @pytest.mark.asyncio
     async def test_add_session_invalid_date(self, knowledge_base_server):
         """Test that invalid date format returns error."""
-        result = await knowledge_base_server.add_session_context({
-            "date": "12-03-2025"  # Wrong format
-        })
+        result = await knowledge_base_server.add_session_context(
+            {
+                "date": "12-03-2025"  # Wrong format
+            }
+        )
         assert "error" in result
         assert "YYYY-MM-DD" in result["error"]
 
@@ -149,46 +144,48 @@ class TestQueryKnowledge:
     async def test_query_returns_results(self, knowledge_base_server, sample_lesson):
         """Test that query returns added content."""
         await knowledge_base_server.add_lesson(sample_lesson)
-        results = await knowledge_base_server.query_knowledge({
-            "query": "test content"
-        })
+        results = await knowledge_base_server.query_knowledge({"query": "test content"})
         assert len(results) > 0
         assert results[0]["type"] == "lesson"
 
     @pytest.mark.asyncio
-    async def test_query_filter_by_category(self, knowledge_base_server, sample_lesson, sample_error):
+    async def test_query_filter_by_category(
+        self, knowledge_base_server, sample_lesson, sample_error
+    ):
         """Test filtering by category."""
         await knowledge_base_server.add_lesson(sample_lesson)
         await knowledge_base_server.add_common_error(sample_error)
 
         # Query only lessons
-        results = await knowledge_base_server.query_knowledge({
-            "query": "test",
-            "category": "lesson"
-        })
+        results = await knowledge_base_server.query_knowledge(
+            {"query": "test", "category": "lesson"}
+        )
         for r in results:
             assert r["type"] == "lesson"
 
     @pytest.mark.asyncio
     async def test_query_filter_by_technology(self, knowledge_base_server):
         """Test filtering by technology."""
-        await knowledge_base_server.add_lesson({
-            "title": "Swift Lesson",
-            "content": "Swift content",
-            "category": "practice",
-            "technology": "swift"
-        })
-        await knowledge_base_server.add_lesson({
-            "title": "Python Lesson",
-            "content": "Python content",
-            "category": "practice",
-            "technology": "python"
-        })
+        await knowledge_base_server.add_lesson(
+            {
+                "title": "Swift Lesson",
+                "content": "Swift content",
+                "category": "practice",
+                "technology": "swift",
+            }
+        )
+        await knowledge_base_server.add_lesson(
+            {
+                "title": "Python Lesson",
+                "content": "Python content",
+                "category": "practice",
+                "technology": "python",
+            }
+        )
 
-        results = await knowledge_base_server.query_knowledge({
-            "query": "content",
-            "technology": "swift"
-        })
+        results = await knowledge_base_server.query_knowledge(
+            {"query": "content", "technology": "swift"}
+        )
         for r in results:
             if "technology" in r:
                 assert r["technology"] == "swift"
@@ -198,16 +195,15 @@ class TestQueryKnowledge:
         """Test that limit is respected."""
         # Add multiple lessons
         for i in range(10):
-            await knowledge_base_server.add_lesson({
-                "title": f"Lesson {i}",
-                "content": f"Content about testing {i}",
-                "category": "practice"
-            })
+            await knowledge_base_server.add_lesson(
+                {
+                    "title": f"Lesson {i}",
+                    "content": f"Content about testing {i}",
+                    "category": "practice",
+                }
+            )
 
-        results = await knowledge_base_server.query_knowledge({
-            "query": "testing",
-            "limit": 3
-        })
+        results = await knowledge_base_server.query_knowledge({"query": "testing", "limit": 3})
         assert len(results) <= 3
 
 
@@ -218,29 +214,26 @@ class TestSearchErrors:
     async def test_search_errors_basic(self, knowledge_base_server, sample_error):
         """Test basic error search."""
         await knowledge_base_server.add_common_error(sample_error)
-        results = await knowledge_base_server.search_errors({
-            "query": "String"
-        })
+        results = await knowledge_base_server.search_errors({"query": "String"})
         assert len(results) > 0
 
     @pytest.mark.asyncio
     async def test_search_errors_by_technology(self, knowledge_base_server):
         """Test error search filtered by technology."""
-        await knowledge_base_server.add_common_error({
-            "technology": "xcode",
-            "error_pattern": "Build failed",
-            "solution": "Clean build folder"
-        })
-        await knowledge_base_server.add_common_error({
-            "technology": "swift",
-            "error_pattern": "Build failed",
-            "solution": "Fix syntax"
-        })
+        await knowledge_base_server.add_common_error(
+            {
+                "technology": "xcode",
+                "error_pattern": "Build failed",
+                "solution": "Clean build folder",
+            }
+        )
+        await knowledge_base_server.add_common_error(
+            {"technology": "swift", "error_pattern": "Build failed", "solution": "Fix syntax"}
+        )
 
-        results = await knowledge_base_server.search_errors({
-            "query": "Build",
-            "technology": "xcode"
-        })
+        results = await knowledge_base_server.search_errors(
+            {"query": "Build", "technology": "xcode"}
+        )
         for r in results:
             assert r["technology"] == "xcode"
 
@@ -252,31 +245,31 @@ class TestGetSwiftPatterns:
     async def test_get_patterns_basic(self, knowledge_base_server, sample_pattern):
         """Test basic pattern retrieval."""
         await knowledge_base_server.add_swift_pattern(sample_pattern)
-        results = await knowledge_base_server.get_swift_patterns({
-            "query": "Result"
-        })
+        results = await knowledge_base_server.get_swift_patterns({"query": "Result"})
         assert len(results) > 0
 
     @pytest.mark.asyncio
     async def test_get_patterns_version_filter(self, knowledge_base_server):
         """Test version filtering."""
-        await knowledge_base_server.add_swift_pattern({
-            "pattern_name": "Old Pattern",
-            "description": "Works on old iOS",
-            "code_example": "// code",
-            "ios_version": "13.0"
-        })
-        await knowledge_base_server.add_swift_pattern({
-            "pattern_name": "New Pattern",
-            "description": "Requires new iOS",
-            "code_example": "// code",
-            "ios_version": "17.0"
-        })
+        await knowledge_base_server.add_swift_pattern(
+            {
+                "pattern_name": "Old Pattern",
+                "description": "Works on old iOS",
+                "code_example": "// code",
+                "ios_version": "13.0",
+            }
+        )
+        await knowledge_base_server.add_swift_pattern(
+            {
+                "pattern_name": "New Pattern",
+                "description": "Requires new iOS",
+                "code_example": "// code",
+                "ios_version": "17.0",
+            }
+        )
 
         # Query for iOS 15 - should only get old pattern
-        results = await knowledge_base_server.get_swift_patterns({
-            "ios_version": "15.0"
-        })
+        results = await knowledge_base_server.get_swift_patterns({"ios_version": "15.0"})
         for r in results:
             if r["ios_version"]:
                 assert float(r["ios_version"]) <= 15.0
@@ -291,19 +284,15 @@ class TestUpdateLesson:
         add_result = await knowledge_base_server.add_lesson(sample_lesson)
         lesson_id = add_result["id"]
 
-        update_result = await knowledge_base_server.update_lesson({
-            "id": lesson_id,
-            "title": "Updated Title"
-        })
+        update_result = await knowledge_base_server.update_lesson(
+            {"id": lesson_id, "title": "Updated Title"}
+        )
         assert update_result["success"] is True
 
     @pytest.mark.asyncio
     async def test_update_lesson_not_found(self, knowledge_base_server):
         """Test updating non-existent lesson."""
-        result = await knowledge_base_server.update_lesson({
-            "id": 99999,
-            "title": "New Title"
-        })
+        result = await knowledge_base_server.update_lesson({"id": 99999, "title": "New Title"})
         assert "error" in result
         assert "not found" in result["error"]
 
@@ -313,15 +302,12 @@ class TestUpdateLesson:
         add_result = await knowledge_base_server.add_lesson(sample_lesson)
         lesson_id = add_result["id"]
 
-        await knowledge_base_server.update_lesson({
-            "id": lesson_id,
-            "tags": ["new_tag1", "new_tag2"]
-        })
+        await knowledge_base_server.update_lesson(
+            {"id": lesson_id, "tags": ["new_tag1", "new_tag2"]}
+        )
 
         # Query to verify tags
-        results = await knowledge_base_server.query_knowledge({
-            "query": sample_lesson["title"]
-        })
+        results = await knowledge_base_server.query_knowledge({"query": sample_lesson["title"]})
         assert len(results) > 0
         assert "new_tag1" in results[0]["tags"]
 
@@ -373,17 +359,17 @@ class TestListTechnologies:
     @pytest.mark.asyncio
     async def test_list_technologies(self, knowledge_base_server):
         """Test listing technologies."""
-        await knowledge_base_server.add_lesson({
-            "title": "Swift Lesson",
-            "content": "Content",
-            "category": "practice",
-            "technology": "swift"
-        })
-        await knowledge_base_server.add_common_error({
-            "technology": "swift",
-            "error_pattern": "Error",
-            "solution": "Fix"
-        })
+        await knowledge_base_server.add_lesson(
+            {
+                "title": "Swift Lesson",
+                "content": "Content",
+                "category": "practice",
+                "technology": "swift",
+            }
+        )
+        await knowledge_base_server.add_common_error(
+            {"technology": "swift", "error_pattern": "Error", "solution": "Fix"}
+        )
 
         techs = await knowledge_base_server.list_technologies({})
         swift_tech = next((t for t in techs if t["technology"] == "swift"), None)
@@ -398,18 +384,22 @@ class TestListTags:
     @pytest.mark.asyncio
     async def test_list_tags_with_counts(self, knowledge_base_server):
         """Test listing tags with usage counts."""
-        await knowledge_base_server.add_lesson({
-            "title": "Lesson 1",
-            "content": "Content",
-            "category": "practice",
-            "tags": ["common_tag"]
-        })
-        await knowledge_base_server.add_lesson({
-            "title": "Lesson 2",
-            "content": "Content",
-            "category": "practice",
-            "tags": ["common_tag"]
-        })
+        await knowledge_base_server.add_lesson(
+            {
+                "title": "Lesson 1",
+                "content": "Content",
+                "category": "practice",
+                "tags": ["common_tag"],
+            }
+        )
+        await knowledge_base_server.add_lesson(
+            {
+                "title": "Lesson 2",
+                "content": "Content",
+                "category": "practice",
+                "tags": ["common_tag"],
+            }
+        )
 
         tags = await knowledge_base_server.list_tags({})
         common = next((t for t in tags if t["tag"] == "common_tag"), None)
@@ -421,7 +411,9 @@ class TestExportKnowledge:
     """Tests for export_knowledge tool."""
 
     @pytest.mark.asyncio
-    async def test_export_all(self, knowledge_base_server, sample_lesson, sample_error, sample_pattern):
+    async def test_export_all(
+        self, knowledge_base_server, sample_lesson, sample_error, sample_pattern
+    ):
         """Test exporting all knowledge."""
         await knowledge_base_server.add_lesson(sample_lesson)
         await knowledge_base_server.add_common_error(sample_error)
@@ -449,10 +441,7 @@ class TestExportKnowledge:
     @pytest.mark.asyncio
     async def test_export_includes_sessions(self, knowledge_base_server):
         """Test exporting with sessions included."""
-        await knowledge_base_server.add_session_context({
-            "date": "2025-12-03",
-            "summary": "Test"
-        })
+        await knowledge_base_server.add_session_context({"date": "2025-12-03", "summary": "Test"})
 
         export = await knowledge_base_server.export_knowledge({"include_sessions": True})
         assert "sessions" in export

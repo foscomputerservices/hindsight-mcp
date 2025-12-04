@@ -53,7 +53,7 @@ def sample_lesson():
         "content": "This is test content for the lesson.",
         "category": "practice",
         "technology": "swift",
-        "tags": ["testing", "sample"]
+        "tags": ["testing", "sample"],
     }
 
 
@@ -65,7 +65,7 @@ def sample_error():
         "error_pattern": "Cannot convert value of type 'String' to expected argument type 'Int'",
         "root_cause": "Type mismatch in function call",
         "solution": "Use Int(string) or pass the correct type",
-        "code_example": "let value = Int(stringValue) ?? 0"
+        "code_example": "let value = Int(stringValue) ?? 0",
     }
 
 
@@ -84,7 +84,7 @@ func fetchData() -> Result<Data, Error> {
         "when_not_to_use": "Simple operations where try/catch is cleaner",
         "related_apis": ["URLSession", "Combine"],
         "ios_version": "13.0",
-        "swift_version": "5.0"
+        "swift_version": "5.0",
     }
 
 
@@ -96,7 +96,12 @@ def populated_db(db_connection):
     # Add lessons
     lessons = [
         ("SwiftUI State Management", "Use @State for local view state", "pattern", "swift"),
-        ("Bitbucket Pipeline Caching", "Cache dependencies to speed up builds", "practice", "bitbucket"),
+        (
+            "Bitbucket Pipeline Caching",
+            "Cache dependencies to speed up builds",
+            "practice",
+            "bitbucket",
+        ),
         ("Xcode Build Settings", "Understand build settings inheritance", "practice", "xcode"),
         ("Memory Leak Detection", "Use Instruments to find memory leaks", "practice", "swift"),
         ("Async/Await Migration", "How to migrate from completion handlers", "pattern", "swift"),
@@ -104,30 +109,57 @@ def populated_db(db_connection):
     for title, content, category, tech in lessons:
         cursor.execute(
             "INSERT INTO lessons (title, content, category, technology) VALUES (?, ?, ?, ?)",
-            (title, content, category, tech)
+            (title, content, category, tech),
         )
 
     # Add errors
     errors = [
-        ("swift", "Type 'X' does not conform to protocol 'Y'", "Missing protocol conformance", "Add protocol conformance"),
-        ("xcode", "Signing requires a development team", "No team selected", "Select a development team in Signing settings"),
-        ("swift", "Cannot find 'X' in scope", "Missing import or typo", "Check imports and spelling"),
+        (
+            "swift",
+            "Type 'X' does not conform to protocol 'Y'",
+            "Missing protocol conformance",
+            "Add protocol conformance",
+        ),
+        (
+            "xcode",
+            "Signing requires a development team",
+            "No team selected",
+            "Select a development team in Signing settings",
+        ),
+        (
+            "swift",
+            "Cannot find 'X' in scope",
+            "Missing import or typo",
+            "Check imports and spelling",
+        ),
     ]
     for tech, pattern, cause, solution in errors:
         cursor.execute(
             "INSERT INTO common_errors (technology, error_pattern, root_cause, solution) VALUES (?, ?, ?, ?)",
-            (tech, pattern, cause, solution)
+            (tech, pattern, cause, solution),
         )
 
     # Add patterns
     patterns = [
-        ("Observable Object", "Use ObservableObject for SwiftUI data", "class MyModel: ObservableObject { @Published var data: [Item] = [] }", "15.0", "5.5"),
-        ("Actor Isolation", "Use actors for thread-safe data", "actor DataManager { var items: [Item] = [] }", "15.0", "5.5"),
+        (
+            "Observable Object",
+            "Use ObservableObject for SwiftUI data",
+            "class MyModel: ObservableObject { @Published var data: [Item] = [] }",
+            "15.0",
+            "5.5",
+        ),
+        (
+            "Actor Isolation",
+            "Use actors for thread-safe data",
+            "actor DataManager { var items: [Item] = [] }",
+            "15.0",
+            "5.5",
+        ),
     ]
     for name, desc, code, ios, swift in patterns:
         cursor.execute(
             "INSERT INTO swift_patterns (pattern_name, description, code_example, ios_version, swift_version) VALUES (?, ?, ?, ?, ?)",
-            (name, desc, code, ios, swift)
+            (name, desc, code, ios, swift),
         )
 
     db_connection.commit()
@@ -137,7 +169,7 @@ def populated_db(db_connection):
 @pytest.fixture
 def knowledge_base_server(temp_db, monkeypatch):
     """Create a KnowledgeBaseServer instance with temp database."""
-    from server import KnowledgeBaseServer, CONFIG
+    from server import KnowledgeBaseServer
 
     # Patch the database path
     monkeypatch.setattr("server.DB_PATH", Path(temp_db))
