@@ -1465,13 +1465,18 @@ async def call_tool(name: str, arguments: Any) -> Sequence[TextContent]:
     return [TextContent(type="text", text=json.dumps(result, indent=2, default=str))]
 
 
-async def main():
-    """Run the MCP server."""
+async def main_async():
+    """Run the MCP server (async entry point)."""
     logger.info("Starting Hindsight MCP Server")
 
     async with stdio_server() as (read_stream, write_stream):
         await server.run(read_stream, write_stream, server.create_initialization_options())
 
 
+def main():
+    """Run the MCP server (sync entry point for console_scripts)."""
+    asyncio.run(main_async())
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

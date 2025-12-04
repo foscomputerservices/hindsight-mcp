@@ -102,3 +102,4 @@ Connection uses exponential backoff (0.5s, 1s, 2s) for transient failures. SQLit
 - The `.claude/` directory contains session logs and lessons learned that provide architectural context
 - This project welcomes AI-assisted contributions (see CONTRIBUTING.md)
 - Always develop in repository, then install with `./install.sh` to `~/.hindsight/`
+- Remember that hindsight is now installed via homebrew and we don't want to break it when working with this repo
