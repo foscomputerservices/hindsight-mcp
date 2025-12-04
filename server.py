@@ -1109,7 +1109,18 @@ class KnowledgeBaseServer:
 
 
 # Create server instance
-kb = KnowledgeBaseServer()
+# kb is lazily initialized to support testing without ~/.hindsight/
+_kb_instance = None
+
+
+def get_kb() -> KnowledgeBaseServer:
+    """Get or create the KnowledgeBaseServer instance."""
+    global _kb_instance
+    if _kb_instance is None:
+        _kb_instance = KnowledgeBaseServer()
+    return _kb_instance
+
+
 server = Server("hindsight")
 
 
@@ -1418,6 +1429,7 @@ async def call_tool(name: str, arguments: Any) -> Sequence[TextContent]:
     """Handle tool invocations."""
     logger.info("Tool called: %s with args: %s", name, arguments)
 
+    kb = get_kb()
     result = None
     args = arguments or {}
 

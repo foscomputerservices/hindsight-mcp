@@ -169,13 +169,15 @@ def populated_db(db_connection):
 @pytest.fixture
 def knowledge_base_server(temp_db, monkeypatch):
     """Create a KnowledgeBaseServer instance with temp database."""
+    # Patch paths BEFORE importing/creating the server
+    # This ensures the server uses our temp db and finds schema.sql in the repo
+    schema_path = Path(__file__).parent.parent / "schema.sql"
+    monkeypatch.setattr("server.DB_PATH", Path(temp_db))
+    monkeypatch.setattr("server.SCHEMA_PATH", schema_path)
+
     from server import KnowledgeBaseServer
 
-    # Patch the database path
-    monkeypatch.setattr("server.DB_PATH", Path(temp_db))
-
-    # Create server instance (this will use the temp db)
+    # Create server instance (this will use the patched paths)
     server = KnowledgeBaseServer()
-    server.db_path = Path(temp_db)
 
     return server
